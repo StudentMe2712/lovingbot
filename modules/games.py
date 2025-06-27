@@ -1,7 +1,6 @@
 import random
 from utils.db_async import get_random_question_for_user, add_question
 from telegram.ext import ConversationHandler
-from utils.hf_image_client import generate_image
 
 class GameModule:
     def __init__(self, db=None):
@@ -17,9 +16,9 @@ class GameModule:
         self.current[user_id] = {"q": q.question, "a": q.answer}
         await update.message.reply_text(q.question)
         # Генерация картинки по вопросу
-        image_bytes = await generate_image(q.question)
-        if image_bytes:
-            await update.message.reply_photo(image_bytes, caption="Сгенерировано по вопросу!")
+        # image_bytes = await generate_image(q.question)
+        # if image_bytes:
+        #     await update.message.reply_photo(image_bytes, caption="Сгенерировано по вопросу!")
 
     async def answer_game(self, update, context):
         user_id = update.effective_user.id
