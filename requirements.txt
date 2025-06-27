@@ -15,3 +15,6 @@ sqlalchemy
 asyncpg
 alembic
 diffusers
+torch
+pillow
+requests
