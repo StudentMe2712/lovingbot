@@ -1,4 +1,3 @@
-# diffusers и torch удалены для деплоя на Railway
 # Локальная генерация отключена, только cloud-генерация или заглушка
 
 def generate_image_local(*args, **kwargs):
