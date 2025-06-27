@@ -1,0 +1,18 @@
+{
+  "users": {
+    "549168650": {
+      "first_name": "Не",
+      "last_name": "Ли",
+      "username": "SoloLevelUp"
+    }
+  },
+  "last_command": {},
+  "user_responses": {},
+  "common_question_last_index": {
+    "past_and_future": 0,
+    "personal_growth": 1,
+    "dreams_and_ambitions": 0,
+    "values_and_emotional_intimacy": 0,
+    "just_for_fun": 1
+  }
+}

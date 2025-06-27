@@ -1,0 +1,13 @@
+python-telegram-bot==20.7
+APScheduler==3.10.4
+pytest==8.4.1
+pytest-asyncio==0.23.6
+nest_asyncio
+pyrogram
+python-dotenv
+flake8
+mypy
+aiohttp
+python-dateutil
+TgCrypto
+groq
