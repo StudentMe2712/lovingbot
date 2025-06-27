@@ -12,3 +12,5 @@ python-dateutil
 pyaes
 groq
 sqlalchemy
+asyncpg
+alembic
