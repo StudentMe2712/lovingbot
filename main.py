@@ -109,7 +109,7 @@ async def main():
                 return
             try:
                 result = await weather_module.get_weather(city)
-                await update.message.reply_text(result, reply_markup=reply_markup)
+                await update.message.reply_text(result, reply_markup=reply_markup, parse_mode="HTML")
             except Exception as e:
                 await update.message.reply_text(f"Ошибка при получении погоды: {e}", reply_markup=reply_markup)
             context.user_data['weather_state'] = None

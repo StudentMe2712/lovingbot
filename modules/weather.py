@@ -17,11 +17,10 @@ class WeatherModule:
                     if resp.status != 200:
                         text = await resp.text()
                         logging.error(f"Weather: ошибка {resp.status}, ответ: {text}")
-                        return f"Не удалось получить погоду. Код: {resp.status}", None
+                        return f"❌ Не удалось получить погоду. Код: {resp.status}"
                     data = await resp.json()
                     now = datetime.now()
                     target_date = now.date()
-                    # Найти ближайший прогноз к текущему времени дня
                     forecast = None
                     min_diff = float('inf')
                     for item in data["list"]:
@@ -31,12 +30,11 @@ class WeatherModule:
                             if diff < min_diff:
                                 min_diff = diff
                                 forecast = item
-                    # Если нет прогноза на сегодня — взять ближайший вообще
                     if not forecast and data["list"]:
                         forecast = data["list"][0]
                     if not forecast:
                         logging.error(f"Weather: нет прогноза в ответе: {data}")
-                        return "Нет данных о погоде.", None
+                        return "Нет данных о погоде."
                     temp = forecast['main']['temp']
                     feels = forecast['main'].get('feels_like', '-')
                     desc = forecast['weather'][0]['description']
@@ -47,24 +45,25 @@ class WeatherModule:
                     pressure = forecast['main'].get('pressure', '-')
                     dt_txt = forecast.get('dt_txt', '')
                     icon_url = f"https://openweathermap.org/img/wn/{icon}@2x.png" if icon else ''
+                    emoji = "☀️" if "ясно" in desc else ("🌧️" if "дожд" in desc else "☁️")
                     msg = (
-                        f"{city} ({dt_txt}):\n"
-                        f"Температура: {temp}°C (ощущается как {feels}°C)\n"
-                        f"Описание: {desc}"
+                        f"{emoji} <b>{city}</b> <i>({dt_txt})</i>\n"
+                        f"Температура: <b>{temp}°C</b> (ощущается как {feels}°C)\n"
+                        f"Описание: <b>{desc}</b>\n"
                     )
                     if icon_url:
-                        msg += f"\n[ ]({icon_url})"
+                        msg += f'<a href="{icon_url}">&#8205;</a>'
                     msg += (
-                        f"\nВлажность: {humidity}%"
-                        f"\nВетер: {wind} м/с"
-                        f"\nОблачность: {clouds}%"
-                        f"\nДавление: {pressure} гПа"
+                        f"Влажность: {humidity}%\n"
+                        f"Ветер: {wind} м/с\n"
+                        f"Облачность: {clouds}%\n"
+                        f"Давление: {pressure} гПа"
                     )
                     logging.info(f"[WeatherModule] get_weather result for {city}: {msg}")
-                    return msg, None
+                    return msg
         except aiohttp.ClientError as e:
             logging.exception(f"Weather: ClientError при запросе погоды для {city}: {e}")
-            return f"Ошибка сети при получении погоды: {e}", None
+            return f"Ошибка сети при получении погоды: {e}"
         except Exception as e:
             logging.exception(f"Weather: исключение при запросе погоды для {city}")
-            return f"Ошибка при получении погоды: {e}", None 
+            return f"Ошибка при получении погоды: {e}" 

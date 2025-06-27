@@ -25,13 +25,7 @@ async def weather_command(update: Update, context):
         city_msg = await context.bot.wait_for('message', timeout=30, check=check_city)
         city = city_msg.text.strip()
         result = await weather_module.get_weather(city)
-        if isinstance(result, tuple):
-            msg, image_bytes = result
-            await update.message.reply_text(msg)
-            if image_bytes:
-                await update.message.reply_photo(image_bytes, caption="Сгенерировано по погоде!")
-        else:
-            await update.message.reply_text(result)
+        await update.message.reply_text(result, parse_mode="HTML")
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
     # Можно доработать: await weather_module.get_weather(...) 
