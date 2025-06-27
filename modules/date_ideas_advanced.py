@@ -3,7 +3,6 @@ from telegram.ext import ContextTypes
 from modules.weather import WeatherModule
 import random
 from utils.groqapi_client import generate_text
-from utils.hf_image_client import generate_image
 
 IDEAS = {
     'дом': [
@@ -67,12 +66,6 @@ class DateIdeasAdvancedModule:
         if result:
             msg = f"Идея для свидания: {result}\n"
             await update.message.reply_text(msg)
-            try:
-                image_bytes = await generate_image(result)
-                if image_bytes:
-                    await update.message.reply_photo(image_bytes, caption="Сгенерировано по вашей идее!")
-            except Exception:
-                pass
         else:
             idea = random.choice(IDEAS[idea_type])
             msg = f"Идея для свидания: {idea}\n"

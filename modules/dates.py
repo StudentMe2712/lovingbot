@@ -1,6 +1,6 @@
 import random
 from utils.groqapi_client import generate_text
-from utils.hf_image_client import generate_image
+# from utils.hf_image_client import generate_image
 
 class DateModule:
     def __init__(self, db):
@@ -41,12 +41,7 @@ class DateModule:
         result = await generate_text(prompt, max_tokens=300)
         if result:
             await update.message.reply_text(f"💡 Идея для свидания: {result}")
-            try:
-                image_bytes = await generate_image(result)
-                if image_bytes:
-                    await update.message.reply_photo(image_bytes, caption="Сгенерировано по вашей идее!")
-            except Exception:
-                pass
+            # image_bytes = await generate_image(result)
             return
         # Fallback на локальный список
         category = random.choice(list(self.ideas.keys()))

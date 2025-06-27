@@ -2,7 +2,7 @@ import random
 from config import PERSONALIZATION
 from utils.user_management import Data
 from utils.groqapi_client import generate_text
-from utils.hf_image_client import generate_image
+# from utils.hf_image_client import generate_image
 
 class GreetingModule:
     def __init__(self, db):
@@ -73,7 +73,7 @@ class GreetingModule:
                 await update.message.reply_text(text)
             # Затем асинхронно отправляем картинку (если получится)
             try:
-                image_bytes = await generate_image(result)
+                # image_bytes = await generate_image(result)
                 if image_bytes:
                     if context and hasattr(context, 'bot'):
                         await context.bot.send_photo(chat_id=chat_id, photo=image_bytes, caption="Сгенерировано по вопросу дня!")
@@ -99,7 +99,7 @@ class GreetingModule:
             text += f"\n{result}"
             await update.message.reply_text(text)
             try:
-                image_bytes = await generate_image(result)
+                # image_bytes = await generate_image(result)
                 if image_bytes:
                     await update.message.reply_photo(image_bytes, caption="Сгенерировано по вашему настроению!")
             except Exception:
@@ -124,7 +124,7 @@ class GreetingModule:
         if result:
             await update.message.reply_text(result)
             try:
-                image_bytes = await generate_image(result)
+                # image_bytes = await generate_image(result)
                 if image_bytes:
                     await update.message.reply_photo(image_bytes, caption="Сгенерировано по комплименту!")
             except Exception:

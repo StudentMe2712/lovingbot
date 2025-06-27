@@ -1,7 +1,6 @@
 import aiohttp
 from datetime import datetime, timedelta
 import logging
-from utils.hf_image_client import generate_image
 
 CITIES = ["Астана", "Семей"]
 
@@ -62,9 +61,7 @@ class WeatherModule:
                         f"\nДавление: {pressure} гПа"
                     )
                     logging.info(f"[WeatherModule] get_weather result for {city}: {msg}")
-                    # Генерация картинки по описанию погоды
-                    image_bytes = await generate_image(desc)
-                    return msg, image_bytes
+                    return msg, None
         except aiohttp.ClientError as e:
             logging.exception(f"Weather: ClientError при запросе погоды для {city}: {e}")
             return f"Ошибка сети при получении погоды: {e}", None
