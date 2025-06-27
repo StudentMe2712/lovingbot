@@ -14,8 +14,6 @@ groq
 sqlalchemy
 asyncpg
 alembic
-diffusers==0.25.0
-torch==2.0.1+cpu
 # https://download.pytorch.org/whl/torch_stable.html
 pillow
 requests
