@@ -1,5 +1,5 @@
 # diffusers и torch удалены для деплоя на Railway
-# Здесь может быть только cloud-генерация или заглушка
+# Локальная генерация отключена, только cloud-генерация или заглушка
 
 def generate_image_local(*args, **kwargs):
     raise NotImplementedError("Локальная генерация отключена на Railway")
