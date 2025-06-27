@@ -1,9 +1,15 @@
-from diffusers import StableDiffusionPipeline, StableDiffusion3Pipeline
-import torch
-import os
+# diffusers и torch удалены для деплоя на Railway
+# Здесь может быть только cloud-генерация или заглушка
+
+def generate_image_local(*args, **kwargs):
+    raise NotImplementedError("Локальная генерация отключена на Railway")
+
+def generate_image_sd3_local(*args, **kwargs):
+    raise NotImplementedError("Локальная генерация SD3 отключена на Railway")
+
+DEVICE = "cpu"
 
 MODEL_ID = "sd-legacy/stable-diffusion-v1-5"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 pipe = StableDiffusionPipeline.from_pretrained(
     MODEL_ID,
