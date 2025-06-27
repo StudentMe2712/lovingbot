@@ -9,5 +9,5 @@ flake8
 mypy
 aiohttp
 python-dateutil
-TgCrypto
+pyaes
 groq
