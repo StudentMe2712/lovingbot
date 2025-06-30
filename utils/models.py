@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Text, Boolean
+from sqlalchemy import Integer, String, Text, Boolean, BigInteger
 
 class Base(DeclarativeBase):
     pass
@@ -7,7 +7,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    tg_id: Mapped[int] = mapped_column(Integer, unique=True)
+    tg_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     name: Mapped[str] = mapped_column(String(64))
     score: Mapped[int] = mapped_column(Integer, default=0)
     partner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
