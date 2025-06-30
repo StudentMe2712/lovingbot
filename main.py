@@ -21,7 +21,7 @@ import os
 from modules.channel_music import send_channel_music
 from utils.user_management import Data, UserStatus
 from utils.logger import setup_logger
-from modules.commands.start import get_start_conv_handler
+from modules.commands.start import get_start_conv_handler, start_command
 from modules.commands.help import help_command
 from modules.commands.game import get_game_conv_handler, game_stats, EXTRA_COMMANDS
 from modules.commands.question import question_command
@@ -151,7 +151,8 @@ async def main():
     async def handle_rus_menu(update, context):
         logger.info(f"handle_rus_menu: {update.message.text}")
         if update.message.text == "В главное меню":
-            await get_start_conv_handler()(update, context)
+            from modules.commands.start import start_command
+            await start_command(update, context)
             return
         if update.message.text == "Погода ☀️":
             await handle_weather_city(update, context)
