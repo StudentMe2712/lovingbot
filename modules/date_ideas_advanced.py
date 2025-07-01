@@ -2,7 +2,12 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 from modules.weather import WeatherModule
 import random
-from utils.groqapi_client import generate_text
+import asyncio
+from typing import List, Dict, Any
+import json
+from utils.ollama_api import query_ollama
+from utils.ollama_mode import get_ollama_mode
+# from utils.groqapi_client import generate_text
 
 IDEAS = {
     'дом': [
@@ -47,8 +52,12 @@ class DateIdeasAdvancedModule:
             )
             return
         # Генерация идеи через LLM
-        prompt = f"Придумай уникальную идею для свидания в стиле: {idea_type}. Кратко и по-русски."
-        result = await generate_text(prompt, max_tokens=300)
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Придумай уникальную идею для свидания в стиле: {idea_type}. Кратко и по-русски.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt, model="llama3")
         # Погода (если выбран 'улица')
         weather_info = ''
         city = None

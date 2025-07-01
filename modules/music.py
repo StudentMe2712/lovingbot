@@ -1,5 +1,7 @@
 import random
-from utils.groqapi_client import generate_text
+from utils.ollama_api import query_ollama
+from utils.ollama_mode import get_ollama_mode
+# from utils.groqapi_client import generate_text
 import aiohttp
 
 class MusicModule:
@@ -14,15 +16,19 @@ class MusicModule:
         ]
 
     async def send_music_recommendation(self, update, context):
-        prompt = "Предложи одну случайную популярную песню (исполнитель - название) и коротко опиши для какого настроения она подходит. Формат: Исполнитель - Название | Описание."
-        result = await generate_text(prompt, max_tokens=60)
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Предложи одну случайную популярную песню (исполнитель - название) и коротко опиши для какого настроения она подходит. Формат: Исполнитель - Название | Описание.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt)
         if result:
             await update.message.reply_text(f"🎵 {result}")
             return
         # Fallback на локальный список
         track, mood, link = random.choice(self.tracks)
         text = f"🎵 {track}\n💬 {mood}\n🔗 {link}"
-        await update.message.reply_text(text)
+        await update.message.reply_text(text) 
 
     async def send_deezer_music(self, update, context):
         url = "https://api.deezer.com/chart"
@@ -43,3 +49,15 @@ class MusicModule:
                     await update.message.reply_text(msg)
         except Exception as e:
             await update.message.reply_text(f"Ошибка Deezer: {e}") 
+
+async def get_music_recommendation(prompt: str, context=None) -> str:
+    """
+    Получает музыкальную рекомендацию от Groq API (или Ollama).
+    """
+    if context:
+        mode, submode = get_ollama_mode(context)
+    else:
+        mode, submode = "general", "standard"
+    full_prompt = f"Посоветуй 1 песню по такому запросу: '{prompt}'. В ответе укажи только исполнителя и название песни, без лишних слов.\nРежим: {mode}\nПодрежим: {submode}"
+    recommendation = await query_ollama(full_prompt)
+    return recommendation 

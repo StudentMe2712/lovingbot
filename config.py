@@ -14,8 +14,8 @@ PERSONALIZATION = {
 }
 
 NOTIFICATION_SETTINGS = {
-    "morning_greetings": True,
-    "daily_questions": True,
+    "morning_greeting": {"enabled": True, "hour": 9, "minute": 0},
+    "daily_question": {"enabled": True, "hour": 12, "minute": 0},
     "music_recommendations": True,
     "game_notifications": True,
     "memory_reminders": True
@@ -24,5 +24,9 @@ NOTIFICATION_SETTINGS = {
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 API_ID = "your_api_id"  # Получить на my.telegram.org
-API_HASH = "your_api_hash"  # Получить на my.telegram.org
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
+# API_HASH = "your_api_hash"  # Получить на my.telegram.org
+# GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+KAMILLA_USER_ID = int(os.getenv("KAMILLA_USER_ID", "0"))
+
+# Ключ для Hugging Face API
+HF_API_KEY = "hf_your_key_here"  # TODO: Замените на ваш реальный ключ 

@@ -3,6 +3,7 @@ from modules.weather import WeatherModule
 from config import WEATHER_API_KEY
 from utils.user_management import Data, UserStatus
 from utils.logger import setup_logger
+from utils.bot_utils import send_message_with_image
 
 logger = setup_logger("weather_command")
 data_instance = Data()
@@ -16,16 +17,34 @@ async def weather_command(update: Update, context):
     if user_status == UserStatus.NOT_ALLOWED:
         await update.message.reply_text("❌ Вы не авторизованы для использования этого бота.")
         return
-    # Запрашиваем город у пользователя
+    
     await update.message.reply_text("Введите город для прогноза погоды:")
-    # Ждём следующий текстовый ответ пользователя
-    def check_city(msg):
-        return msg.from_user.id == user_id and msg.text
+    
+    # Контекст ConversationHandler здесь не используется, поэтому
+    # можно просто ожидать следующее сообщение от нужного пользователя.
+    # Но для продакшена лучше использовать ConversationHandler.
+    context.user_data['waiting_for_city'] = True
+
+
+async def handle_city_input(update: Update, context):
+    """
+    Обрабатывает ввод города после команды /weather.
+    """
+    if not context.user_data.get('waiting_for_city'):
+        # Это не ответ на наш запрос, игнорируем
+        return
+
+    city = update.message.text.strip()
+    context.user_data['waiting_for_city'] = False
+
     try:
-        city_msg = await context.bot.wait_for('message', timeout=30, check=check_city)
-        city = city_msg.text.strip()
-        result = await weather_module.get_weather(city)
-        await update.message.reply_text(result, parse_mode="HTML")
+        weather_text, image_prompt = await weather_module.get_weather(city)
+        if image_prompt:
+            await send_message_with_image(update, context, weather_text, image_prompt)
+        else:
+            await update.message.reply_text(weather_text, parse_mode="HTML")
+            
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        logger.error(f"Ошибка при обработке погоды для города '{city}': {e}")
+        await update.message.reply_text(f"Произошла непредвиденная ошибка: {e}")
     # Можно доработать: await weather_module.get_weather(...) 

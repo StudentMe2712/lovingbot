@@ -2,13 +2,15 @@ import aiohttp
 from datetime import datetime, timedelta
 import logging
 
-CITIES = ["Астана", "Семей"]
+CITIES = [
+    "Астана", "Семей", "Москва", "Париж", "Лондон", "Берлин", "Рим", "Токио", "Нью-Йорк", "Пекин", "Вашингтон", "Мадрид", "Амстердам", "Сеул", "Дели", "Бангкок", "Сингапур"
+]
 
 class WeatherModule:
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    async def get_weather(self, city: str):
+    async def get_weather(self, city: str) -> tuple[str, str] | tuple[str, None]:
         logging.info(f"[WeatherModule] get_weather called for city: {city}")
         url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={self.api_key}&units=metric&lang=ru"
         try:
@@ -17,7 +19,7 @@ class WeatherModule:
                     if resp.status != 200:
                         text = await resp.text()
                         logging.error(f"Weather: ошибка {resp.status}, ответ: {text}")
-                        return f"❌ Не удалось получить погоду. Код: {resp.status}"
+                        return f"❌ Не удалось получить погоду. Код: {resp.status}", None
                     data = await resp.json()
                     now = datetime.now()
                     target_date = now.date()
@@ -34,7 +36,7 @@ class WeatherModule:
                         forecast = data["list"][0]
                     if not forecast:
                         logging.error(f"Weather: нет прогноза в ответе: {data}")
-                        return "Нет данных о погоде."
+                        return "Нет данных о погоде.", None
                     temp = forecast['main']['temp']
                     feels = forecast['main'].get('feels_like', '-')
                     desc = forecast['weather'][0]['description']
@@ -60,10 +62,14 @@ class WeatherModule:
                         f"Давление: {pressure} гПа"
                     )
                     logging.info(f"[WeatherModule] get_weather result for {city}: {msg}")
-                    return msg
+                    
+                    # Возвращаем кортеж: (сообщение, промпт для картинки)
+                    image_prompt = f"beautiful weather in {city}, {desc}"
+                    return msg, image_prompt
+
         except aiohttp.ClientError as e:
             logging.exception(f"Weather: ClientError при запросе погоды для {city}: {e}")
-            return f"Ошибка сети при получении погоды: {e}"
+            return f"Ошибка сети при получении погоды: {e}", None
         except Exception as e:
             logging.exception(f"Weather: исключение при запросе погоды для {city}")
-            return f"Ошибка при получении погоды: {e}" 
+            return f"Ошибка при получении погоды: {e}", None 

@@ -1,5 +1,7 @@
 import random
-from utils.groqapi_client import generate_text
+from utils.ollama_api import query_ollama
+from utils.bot_utils import send_message_with_image
+from utils.ollama_mode import get_ollama_mode
 # from utils.hf_image_client import generate_image
 
 class DateModule:
@@ -37,14 +39,25 @@ class DateModule:
 
     async def send_date_idea(self, update, context):
         # Генерация идеи через LLM
-        prompt = "Предложи уникальную идею для романтического свидания для пары. Кратко и по-русски."
-        result = await generate_text(prompt, max_tokens=300)
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Предложи уникальную идею для романтического свидания для пары. Кратко и по-русски.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt)
+        
+        text_to_send = ""
         if result:
-            await update.message.reply_text(f"💡 Идея для свидания: {result}")
-            # image_bytes = await generate_image(result)
-            return
-        # Fallback на локальный список
-        category = random.choice(list(self.ideas.keys()))
-        idea = random.choice(self.ideas[category])
-        text = f"{category} идея для свидания:\n{idea}"
-        await update.message.reply_text(text) 
+            text_to_send = f"💡 Идея для свидания: {result}"
+        else:
+            # Fallback на локальный список
+            category = random.choice(list(self.ideas.keys()))
+            idea = random.choice(self.ideas[category])
+            text_to_send = f"{category} идея для свидания:\n{idea}"
+
+        await send_message_with_image(
+            update=update,
+            context=context,
+            text=text_to_send,
+            image_prompt=f"romantic date idea: {result if result else idea}"
+        ) 

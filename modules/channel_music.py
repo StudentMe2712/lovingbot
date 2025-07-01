@@ -1,5 +1,6 @@
 from pyrogram import Client
-from config import API_ID, API_HASH
+# from config import API_ID, API_HASH
+# from config import MUSIC_CHANNEL_ID
 
 CHANNEL_USERNAME = "AUDIO_KINGDOM"
 

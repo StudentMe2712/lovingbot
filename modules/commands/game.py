@@ -8,6 +8,10 @@ from utils.db_async import add_question, get_random_question_for_user, increment
 from modules.commands.start import send_welcome
 from unittest.mock import MagicMock
 import random
+from utils.ollama_api import query_ollama
+from config import KAMILLA_USER_ID
+from utils.bot_utils import send_message_with_image
+from utils.ollama_mode import get_ollama_mode, get_mode_button_text, set_ollama_mode
 
 logger = setup_logger("game_command")
 data_instance = Data()
@@ -29,8 +33,51 @@ PARTNER_TG_ID = 123456789  # TODO: заменить на реальный tg_id 
 
 SET_PARTNER = 1000
 
+SYSTEM_PROMPT_QUIZ_GEN = (
+    "Ты - искусный составитель вопросов для викторины о влюбленной паре. "
+    "Генерируй вопросы о личных предпочтениях, общих воспоминаниях, мечтах и планах. "
+    "Вопрос должен быть кратким и нести потенциал для одного или двух слов ответа. "
+    "Сгенерируй 5 уникальных вопросов. Формат: 'Вопрос: [текст вопроса]? Ответ: [одно-два слова ответа]'. Каждый вопрос с новой строки."
+)
+
 def get_hint():
     return random.choice(HINTS)
+
+async def parse_generated_questions(text: str) -> list:
+    """Парсит сгенерированные вопросы из текста."""
+    questions = []
+    for line in text.split('\n'):
+        if 'Вопрос:' in line and 'Ответ:' in line:
+            q_part, a_part = line.split('Ответ:')
+            question = q_part.replace('Вопрос:', '').strip()
+            answer = a_part.strip()
+            questions.append((question, answer))
+    return questions
+
+async def generate_questions(update: Update, context: CallbackContext):
+    """Генерирует новые вопросы через Ollama."""
+    user_id = update.effective_user.id
+    await update.message.reply_text("Генерирую новые вопросы...")
+    
+    if context:
+        mode, submode = get_ollama_mode(context)
+    else:
+        mode, submode = "general", "standard"
+    system_message = f"{SYSTEM_PROMPT_QUIZ_GEN}\nРежим: {mode}\nПодрежим: {submode}"
+    
+    try:
+        response = await query_ollama(prompt="", system_message=system_message)
+        questions = await parse_generated_questions(response)
+        
+        for question, answer in questions:
+            await add_question(question, answer, user_id, is_ai_generated=True)
+        
+        await update.message.reply_text(f"Успешно добавлено {len(questions)} новых вопросов!")
+    except Exception as e:
+        logger.error(f"Ошибка при генерации вопросов: {e}")
+        await update.message.reply_text("Произошла ошибка при генерации вопросов. Попробуйте позже.")
+    
+    return await game_entry(update, context)
 
 def get_game_conv_handler():
     return ConversationHandler(
@@ -44,6 +91,7 @@ def get_game_conv_handler():
                 MessageHandler(filters.Regex("^Добавить вопрос$"), add_question_start),
                 MessageHandler(filters.Regex("^Добавить голосовой вопрос$"), add_voice_question_start),
                 MessageHandler(filters.Regex("^Добавить медиа вопрос$"), add_media_question_start),
+                MessageHandler(filters.Regex("^Сгенерировать вопросы$"), generate_questions),
                 MessageHandler(filters.Regex("^Ответить на вопрос$"), ask_question),
                 MessageHandler(filters.Regex("^Мои вопросы$"), myquestions_entry),
                 MessageHandler(filters.Regex("^Вопросы партнёра$"), partner_questions),
@@ -84,9 +132,15 @@ async def game_entry(update: Update, context):
     user_id = update.effective_user.id
     user_questions = db.conn.execute("SELECT COUNT(*) FROM quiz_questions WHERE created_by = ?", (user_id,)).fetchone()[0]
     if user_questions < 3:
-        await update.message.reply_text("У вас мало своих вопросов! Добавьте новый, чтобы сделать игру интереснее.")
-    keyboard = [
+        await update.message.reply_text("У вас мало своих вопросов! Добавьте новый или сгенерируйте вопросы, чтобы сделать игру интереснее.")
+    if context:
+        mode, _ = get_ollama_mode(context)
+    else:
+        mode = "general"
+    mode_button = [get_mode_button_text(mode)]
+    keyboard = [mode_button,
         ["Добавить вопрос", "Добавить голосовой вопрос", "Добавить медиа вопрос"],
+        ["Сгенерировать вопросы"],
         ["Ответить на вопрос"],
         ["Мои вопросы", "Вопросы партнёра", "Статистика пары"],
         ["Удалить вопрос", "Поиск вопроса"],
@@ -187,18 +241,27 @@ async def ask_question(update: Update, context):
     if not q:
         await update.message.reply_text("Нет доступных вопросов. Добавьте свой!")
         return CHOOSE_ACTION
+        
     context.user_data['current_q'] = q.question
     context.user_data['current_a'] = q.answer
+
     if hasattr(q, 'media_type') and q.media_type and q.media_type != 'text':
+        caption = "Ответьте на медиа-вопрос:"
         if q.media_type == 'voice':
-            await update.message.reply_voice(q.file_id)
+            await update.message.reply_voice(q.file_id, caption=caption)
         elif q.media_type == 'photo':
-            await update.message.reply_photo(q.file_id)
+            await update.message.reply_photo(q.file_id, caption=caption)
         elif q.media_type == 'video':
-            await update.message.reply_video(q.file_id)
-        await update.message.reply_text("Ответьте на медиа-вопрос:")
+            await update.message.reply_video(q.file_id, caption=caption)
     else:
-        await update.message.reply_text(f"Вопрос: {q.question}")
+        await send_message_with_image(
+            update,
+            context,
+            text=f"Вопрос: {q.question}",
+            image_prompt=f"quiz question, couple relationship, {q.question}"
+        )
+        await update.message.reply_text("Ваш ответ?")
+
     return WAIT_ANSWER
 
 async def check_answer(update: Update, context):
@@ -509,4 +572,11 @@ async def partner_confirm_callback(update: Update, context: CallbackContext):
         await update_partner_confirmed(user_id, False)
         await update_partner_confirmed(partner_id, False)
         await context.bot.send_message(chat_id=partner_id, text=f"{query.from_user.first_name} отклонил(а) партнёрство.")
-        await query.edit_message_text("Партнёрство отклонено.") 
+        await query.edit_message_text("Партнёрство отклонено.")
+
+async def toggle_ollama_mode_game_handler(update, context):
+    mode, submode = get_ollama_mode(context)
+    new_mode = "couple" if mode == "general" else "general"
+    set_ollama_mode(context, new_mode)
+    await update.message.reply_text(f"Режим переключён: {get_mode_button_text(new_mode)}")
+    return await game_entry(update, context) 

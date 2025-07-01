@@ -21,9 +21,9 @@ import os
 from modules.channel_music import send_channel_music
 from utils.user_management import Data, UserStatus
 from utils.logger import setup_logger
-from modules.commands.start import get_start_conv_handler, start_command
+from modules.commands.start import get_start_conv_handler, start_command, toggle_ollama_mode_handler, wishlist_command, add_wish_command, done_wish_command, remove_wish_command, postcard_command, block_partner_command, unblock_partner_command
 from modules.commands.help import help_command
-from modules.commands.game import get_game_conv_handler, game_stats, EXTRA_COMMANDS
+from modules.commands.game import get_game_conv_handler, game_stats, EXTRA_COMMANDS, toggle_ollama_mode_game_handler
 from modules.commands.question import question_command
 from modules.commands.memory import memory_command
 from modules.commands.add_memory import add_memory_command
@@ -39,6 +39,9 @@ from modules.commands.memory_archive import memory_archive_command
 from modules.commands.date_idea_advanced import get_conv_handler
 from utils.db_async import init_db
 from modules.commands.draw import draw_command
+from modules.commands.reminders import reminders_command
+from modules.commands.weather import weather_command
+from utils.ollama_mode import get_mode_button_text
 
 if sys.platform.startswith("win") and sys.version_info >= (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -57,20 +60,63 @@ async def main():
     date_ideas_advanced_module = DateIdeasAdvancedModule(weather_api_key=WEATHER_API_KEY)
     weather_module = WeatherModule(api_key=WEATHER_API_KEY)
 
+    async def help_command(update, context):
+        help_text = (
+            "\n".join([
+                "Вы можете управлять мной с помощью этих команд:",
+                "/game - викторина о вас",
+                "/music - музыкальная рекомендация",
+                "/memory - случайное воспоминание",
+                "/add_memory - добавить воспоминание",
+                "/date_idea - идея для свидания",
+                "/question - вопрос дня",
+                "/mood - оценить настроение",
+                "/compliment - получить комплимент",
+                "/stats - статистика игр",
+                "/reminders - список напоминаний",
+                "/reminder_add - добавить напоминание",
+                "/reminder_remove - удалить напоминание",
+                "/mood_stats - статистика настроения",
+                "/memory_archive - архив воспоминаний",
+                "/date_idea_advanced - расширенная идея для свидания",
+                "/weather - узнать погоду",
+                "/deezer_music - топ-чарт Deezer",
+                "/block_partner - заблокировать партнёра",
+                "/unblock_partner - разблокировать партнёра",
+                "/wishlist - список желаний",
+                "/add_wish - добавить желание",
+                "/done_wish - отметить желание как выполненное",
+                "/remove_wish - удалить желание",
+                "/postcard - создать открытку по описанию"
+            ])
+        )
+        await update.message.reply_text(help_text)
+
     RUS_COMMANDS = {
-        "Игра 🎲": game_module.start_game,
+        "Игры 🎲": game_module.start_game,
         "Музыка 🎵": music_module.send_music_recommendation,
-        "Воспоминание 📸": memory_module.send_random_memory,
+        "Погода ☀️": weather_command,
+        "Воспоминания 📸": memory_module.send_random_memory,
         "Добавить воспоминание ➕📸": memory_module.add_memory,
+        "Архив воспоминаний 🗂️": memory_archive_command,
         "Идея для свидания 💡": date_module.send_date_idea,
+        "Расшир. свидание 🗺️": date_ideas_advanced_module.date_idea_advanced,
         "Вопрос дня ❓": greeting_module.send_daily_question,
-        "Настроение 😊": greeting_module.ask_mood,
+        "Желания 🎁": wishlist_command,
+        "Добавить желание ➕🎁": add_wish_command,
+        "Выполнить желание ✅": done_wish_command,
+        "Удалить желание ❌": remove_wish_command,
+        "Создать открытку 🖼️": postcard_command,
         "Комплимент 💬": greeting_module.send_compliment,
+        "Настроение 😊": greeting_module.ask_mood,
         "Статистика 📊": game_module.send_stats,
         "Напоминания ⏰": reminders_module.list_reminders,
-        "Архив воспоминаний 🗂️": memory_archive_command,
-        "Расшир. свидание 🗺️": date_ideas_advanced_module.date_idea_advanced,
+        "Добавить напоминание ➕⏰": reminder_add_command,
+        "Удалить напоминание ❌⏰": reminder_remove_command,
         "Deezer музыка 🟦": music_module.send_deezer_music,
+        "Заблокировать партнёра 🚫": block_partner_command,
+        "Разблокировать партнёра 🔓": unblock_partner_command,
+        "Помощь /help": help_command,
         "В главное меню": None
     }
 
@@ -207,6 +253,9 @@ async def main():
     app.add_handler(CommandHandler("save_audio_file_id", save_audio_file_id))
     app.add_handler(CommandHandler("send_audio", send_audio_command))
     app.add_handler(CommandHandler("draw", draw_command))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(MessageHandler(filters.TEXT & (filters.Regex(f'^{get_mode_button_text("general")}$') | filters.Regex(f'^{get_mode_button_text("couple")}$')), toggle_ollama_mode_handler))
+    app.add_handler(MessageHandler(filters.TEXT & (filters.Regex(f'^{get_mode_button_text("general")}$') | filters.Regex(f'^{get_mode_button_text("couple")}$')), toggle_ollama_mode_game_handler))
 
     # Пример расписания (JobQueue через APScheduler)
     scheduler.add_job(greeting_module.send_morning_greeting, 'cron', hour=9, minute=0)
@@ -217,11 +266,16 @@ async def main():
 
     # Главная клавиатура для возврата
     MAIN_MENU = [
-        ["Игра 🎲", "Музыка 🎵", "Воспоминание 📸"],
-        ["Добавить воспоминание ➕📸", "Идея для свидания 💡", "Вопрос дня ❓"],
-        ["Настроение 😊", "Комплимент 💬", "Статистика 📊"],
-        ["Напоминания ⏰", "Архив воспоминаний 🗂️", "Расшир. свидание 🗺️"],
-        ["Deezer музыка 🟦", "Погода ☀️"]
+        ["Игры 🎲", "Музыка 🎵", "Погода ☀️"],
+        ["Воспоминания 📸", "Добавить воспоминание ➕📸", "Архив воспоминаний 🗂️"],
+        ["Идея для свидания 💡", "Расшир. свидание 🗺️", "Вопрос дня ❓"],
+        ["Желания 🎁", "Добавить желание ➕🎁", "Выполнить желание ✅", "Удалить желание ❌"],
+        ["Создать открытку 🖼️"],
+        ["Комплимент 💬", "Настроение 😊", "Статистика 📊"],
+        ["Напоминания ⏰", "Добавить напоминание ➕⏰", "Удалить напоминание ❌⏰"],
+        ["Deezer музыка 🟦"],
+        ["Заблокировать партнёра 🚫", "Разблокировать партнёра 🔓"],
+        ["Помощь /help"]
     ]
 
     await init_db()

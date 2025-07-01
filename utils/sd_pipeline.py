@@ -68,3 +68,21 @@ DEVICE = "cpu"
 #         elif "device" in str(e) and "cuda" in str(e) and "cpu" in str(e):
 #             print("\nВНИМАНИЕ: Проверьте, что PyTorch установлен с поддержкой CUDA для вашей версии GPU, или установите DEVICE='cpu' если у вас нет NVIDIA GPU.")
 #         return None 
+
+import os
+from huggingface_hub import InferenceClient
+from io import BytesIO
+
+client = InferenceClient(
+    provider="nebius",
+    api_key=os.environ["HUGGINGFACE_API_KEY"],
+)
+
+async def generate_postcard(prompt: str) -> bytes:
+    image = client.text_to_image(
+        prompt,
+        model="black-forest-labs/FLUX.1-schnell",
+    )
+    buf = BytesIO()
+    image.save(buf, format='PNG')
+    return buf.getvalue() 

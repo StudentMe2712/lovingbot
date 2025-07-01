@@ -43,6 +43,7 @@ async def test_add_voice_memory(tmp_path):
     update = MagicMock()
     update.message.reply_text = AsyncMock()
     update.message.voice = MagicMock(file_id="voice123")
+    update.message.caption = "радость"
     context = MagicMock()
     await module.add_voice_memory(update, context)
     memory = db.get_random_memory()
@@ -61,4 +62,29 @@ async def test_send_random_memory_empty(tmp_path):
     context = MagicMock()
     await module.send_random_memory(update, context)
     update.message.reply_text.assert_called()
-    db.close() 
+    db.close()
+
+@pytest.mark.asyncio
+async def test_add_memory_with_tags_and_emotion():
+    db = MagicMock()
+    module = __import__('modules.memories', fromlist=['MemoryModule']).MemoryModule(db)
+    update = MagicMock()
+    update.message.reply_text = AsyncMock()
+    context = MagicMock()
+    context.args = ["Сегодня был отличный день!; #отдых, #лето; радость"]
+    await module.add_memory(update, context)
+    db.add_memory.assert_called_with(type="text", content="Сегодня был отличный день!", tags="отдых, лето", emotion="радость")
+    update.message.reply_text.assert_called()
+
+@pytest.mark.asyncio
+async def test_add_photo_memory_with_tags_and_emotion():
+    db = MagicMock()
+    module = __import__('modules.memories', fromlist=['MemoryModule']).MemoryModule(db)
+    update = MagicMock()
+    update.message.reply_text = AsyncMock()
+    update.message.photo = [MagicMock(file_id="photo123")]
+    update.message.caption = "Фото с моря; #отдых; счастье"
+    context = MagicMock()
+    await module.add_photo_memory(update, context)
+    db.add_memory.assert_called_with(type="photo", content="", file_id="photo123", description="Фото с моря", tags="отдых", emotion="счастье")
+    update.message.reply_text.assert_called() 

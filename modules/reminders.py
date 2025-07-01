@@ -13,7 +13,7 @@ class RemindersModule:
     async def add_reminder(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = context.args
         if len(args) < 2:
-            await update.message.reply_text("Формат: /reminder_add <дата/время> <текст напоминания>\nПример: /reminder_add 2024-06-10 18:00 Позвонить любимой")
+            await update.message.reply_text("Формат: /reminder_add <дата/время> <текст напоминания> [для_пары]\nПример: /reminder_add 2024-06-10 18:00 Позвонить любимой для_пары")
             return
         try:
             remind_at = date_parser.parse(args[0] + (" " + args[1] if len(args) > 2 else ""))
@@ -25,15 +25,20 @@ class RemindersModule:
             await update.message.reply_text("Дата/время уже прошли!")
             return
         user_id = update.effective_user.id
-        reminder_id = self.db.add_reminder(user_id, text, remind_at.isoformat())
+        shared_with_partner = False
+        # Если в тексте есть ключевое слово "для_пары" — делаем напоминание общим
+        if text.endswith("для_пары"):
+            shared_with_partner = True
+            text = text.replace("для_пары", "").strip()
+        reminder_id = self.db.add_reminder(user_id, text, remind_at.isoformat(), shared_with_partner=shared_with_partner)
         self.scheduler.add_job(self.send_reminder, 'date', run_date=remind_at, args=[update.effective_chat.id, text, reminder_id])
-        await update.message.reply_text(f"Напоминание добавлено: {remind_at.strftime('%d.%m.%Y %H:%M')} — {text}")
+        await update.message.reply_text(f"Напоминание добавлено: {remind_at.strftime('%d.%m.%Y %H:%M')} — {text}" + (" (для пары)" if shared_with_partner else ""))
 
     async def send_reminder(self, chat_id, text, reminder_id):
         from telegram import Bot
-        # context7: Application.get_instance() не используется, нужен токен
-        # Лучше передавать bot через context, но для простоты:
-        # TODO: заменить на context.bot, если будет доступен
+        # Проверка на блокировку партнёра
+        if self.db.is_partner_blocked(chat_id, chat_id):
+            return
         bot = Bot(token="BOT_TOKEN")
         await bot.send_message(chat_id=chat_id, text=f"🔔 Напоминание: {text}")
         # После отправки удалить напоминание из БД
@@ -46,8 +51,9 @@ class RemindersModule:
             await update.message.reply_text("У вас нет активных напоминаний.")
             return
         msg = "Ваши напоминания:\n"
-        for rid, text, dt in reminders:
-            msg += f"#{rid}: {dt.replace('T', ' ')} — {text}\n"
+        for rid, text, dt, shared in reminders:
+            shared_str = " (для пары)" if shared else ""
+            msg += f"#{rid}: {dt.replace('T', ' ')} — {text}{shared_str}\n"
         await update.message.reply_text(msg)
 
     async def remove_reminder(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

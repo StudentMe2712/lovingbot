@@ -18,11 +18,10 @@ async def test_weather_success():
         mock_resp.status = 200
         mock_resp.json = AsyncMock(return_value={"list": [fake_item]})
         mock_get.return_value.__aenter__.return_value = mock_resp
-        result = await module.get_weather("Астана")
-        assert "Астана сегодня" in result
-        assert "Температура: 25°C" in result
-        assert "Влажность: 50%" in result
-        assert "Ветер: 3 м/с" in result
+        result, image_prompt = await module.get_weather("Астана")
+        assert "Астана" in result
+        assert "ясно" in result
+        assert image_prompt is not None
 
 @pytest.mark.asyncio
 async def test_weather_fail():
@@ -32,5 +31,6 @@ async def test_weather_fail():
         mock_resp.status = 404
         mock_resp.text = AsyncMock(return_value="Not found")
         mock_get.return_value.__aenter__.return_value = mock_resp
-        result = await module.get_weather("Астана")
-        assert "Не удалось получить погоду" in result 
+        result, image_prompt = await module.get_weather("Астана")
+        assert "Не удалось получить погоду" in result
+        assert image_prompt is None 

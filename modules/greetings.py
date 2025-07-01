@@ -1,8 +1,13 @@
 import random
 from config import PERSONALIZATION
 from utils.user_management import Data
-from utils.groqapi_client import generate_text
-# from utils.hf_image_client import generate_image
+from utils.bot_utils import send_message_with_image
+from utils.db_async import add_mood, get_user_by_tg_id
+from utils.ollama_api import query_ollama
+from config import KAMILLA_USER_ID
+from database.db_manager import DatabaseManager
+from telegram import ReplyKeyboardMarkup
+from utils.ollama_mode import get_ollama_mode
 
 class GreetingModule:
     def __init__(self, db):
@@ -62,50 +67,50 @@ class GreetingModule:
             chat_id = context.job.chat_id
         else:
             chat_id = -1002123456789  # заменить на реальный id группы
-        prompt = "Придумай интересный вопрос для пары, чтобы они лучше узнали друг друга. Кратко и по-русски."
-        result = await generate_text(prompt, max_tokens=60)
+        # Получаем режим и подрежим
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Придумай интересный вопрос для пары, чтобы они лучше узнали друг друга. Кратко и по-русски.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt)
+        text_to_send = ""
         if result:
-            text = f"❓ Вопрос дня: {result}"
-            # Сначала отправляем текст
-            if context and hasattr(context, 'bot'):
-                await context.bot.send_message(chat_id=chat_id, text=text)
-            elif update and update.message:
-                await update.message.reply_text(text)
-            # Затем асинхронно отправляем картинку (если получится)
-            try:
-                # image_bytes = await generate_image(result)
-                if image_bytes:
-                    if context and hasattr(context, 'bot'):
-                        await context.bot.send_photo(chat_id=chat_id, photo=image_bytes, caption="Сгенерировано по вопросу дня!")
-                    elif update and update.message:
-                        await update.message.reply_photo(image_bytes, caption="Сгенерировано по вопросу дня!")
-            except Exception:
-                pass  # fallback: не отправлять картинку при ошибке
+            text_to_send = f"❓ Вопрос дня: {result}"
         else:
             question = self.data.get_common_question()
-            text = f"❓ Вопрос дня: {question}"
-            if context and hasattr(context, 'bot'):
-                await context.bot.send_message(chat_id=chat_id, text=text)
-            elif update and update.message:
-                await update.message.reply_text(text)
-        self.data.increment_common_question_index()
+            text_to_send = f"❓ Вопрос дня: {question}"
+            self.data.increment_common_question_index()
+        # Для отправки запланированного сообщения нужен bot, а для команды - update
+        if context and hasattr(context, 'bot') and not update:
+            class FakeUpdate:
+                def __init__(self, bot):
+                    self.message = None
+                    self.callback_query = None
+                    self._bot = bot
+                @property
+                def effective_chat(self):
+                    class Chat:
+                        id = chat_id
+                    return Chat()
+            fake_update = FakeUpdate(context.bot)
+            await send_message_with_image(fake_update, context, text_to_send, image_prompt=result)
+        elif update:
+            await send_message_with_image(update, context, text_to_send, image_prompt=result)
 
     async def ask_mood(self, update, context):
-        prompt = "Придумай короткий позитивный совет или пожелание для пары на день. Кратко и по-русски."
-        result = await generate_text(prompt, max_tokens=40)
-        keyboard = [[str(i) for i in range(1, 11)]]
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Придумай короткий позитивный совет или пожелание для пары на день. Кратко и по-русски.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt)
         text = "Оцените ваше настроение от 1 до 10 сегодня 😊"
         if result:
             text += f"\n{result}"
-            await update.message.reply_text(text)
-            try:
-                # image_bytes = await generate_image(result)
-                if image_bytes:
-                    await update.message.reply_photo(image_bytes, caption="Сгенерировано по вашему настроению!")
-            except Exception:
-                pass
-        else:
-            await update.message.reply_text(text)
+        await send_message_with_image(update, context, text, image_prompt=result)
+        keyboard = [[str(i) for i in range(1, 11)]]
+        await update.message.reply_text("Ваша оценка:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True))
 
     async def save_mood(self, update, context):
         try:
@@ -115,20 +120,29 @@ class GreetingModule:
             return
         user_id = update.effective_user.id
         from datetime import datetime
-        self.db.add_mood(user_id, mood, datetime.now().isoformat())
+        await add_mood(user_id, mood, datetime.now().isoformat())
         await update.message.reply_text(f"Ваше настроение ({mood}) сохранено!")
-
-    async def send_compliment(self, update, context):
-        prompt = "Придумай красивый комплимент для пары. Кратко и по-русски."
-        result = await generate_text(prompt, max_tokens=40)
-        if result:
-            await update.message.reply_text(result)
+        # Уведомление партнёру
+        user = await get_user_by_tg_id(user_id)
+        partner_id = getattr(user, 'partner_id', None)
+        db = DatabaseManager()
+        if partner_id and not db.is_partner_blocked(partner_id, user_id):
             try:
-                # image_bytes = await generate_image(result)
-                if image_bytes:
-                    await update.message.reply_photo(image_bytes, caption="Сгенерировано по комплименту!")
+                await context.bot.send_message(chat_id=partner_id, text=f"💬 У пользователя {update.effective_user.first_name} сегодня настроение: {mood}/10.")
             except Exception:
                 pass
-            return
-        compliment = random.choice(self.compliments)
-        await update.message.reply_text(compliment) 
+        # AI-комплимент при плохом настроении
+        if mood <= 3:
+            SYSTEM_PROMPT_COMPLIMENT = "Ты - заботливый и поддерживающий бот для пары. Сгенерируй короткое, ободряющее сообщение, комплимент или фразу поддержки для человека, у которого плохое настроение. Используй теплые слова. Максимум 20 слов."
+            compliment_text = await query_ollama(f"Настроение пользователя {update.effective_user.first_name} плохое. Напиши что-то поддерживающее.", system_message=SYSTEM_PROMPT_COMPLIMENT)
+            await update.message.reply_text(compliment_text)
+
+    async def send_compliment(self, update, context):
+        if context:
+            mode, submode = get_ollama_mode(context)
+        else:
+            mode, submode = "general", "standard"
+        prompt = f"Напиши короткий, милый и оригинальный комплимент для любимого человека. По-русски.\nРежим: {mode}\nПодрежим: {submode}"
+        result = await query_ollama(prompt)
+        text_to_send = result if result else random.choice(self.compliments)
+        await send_message_with_image(update, context, text_to_send, image_prompt=text_to_send) 

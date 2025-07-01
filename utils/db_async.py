@@ -2,11 +2,12 @@ import os
 import ssl
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from dotenv import load_dotenv
-from utils.models import Base, User, QuizQuestion
+from utils.models import Base, User, QuizQuestion, UserMood
 from sqlalchemy import Integer, String, Text, select, func, update
 import logging
 import random
 import sqlalchemy as sa
+import datetime
 
 load_dotenv()
 DATABASE_URL = "postgresql+asyncpg://lovebot_owner:npg_DxWA9hIkEmn8@ep-fancy-snow-a8j72m3q-pooler.eastus2.azure.neon.tech/lovebot"
@@ -50,9 +51,9 @@ async def get_all_questions():
         result = await session.execute(select(QuizQuestion))
         return result.scalars().all()
 
-async def add_question(question: str, answer: str, created_by: int):
+async def add_question(question: str, answer: str, created_by: int, is_ai_generated: bool = False):
     async with async_session() as session:
-        q = QuizQuestion(question=question, answer=answer, created_by=created_by)
+        q = QuizQuestion(question=question, answer=answer, created_by=created_by, is_ai_generated=is_ai_generated)
         session.add(q)
         await session.commit()
         return q
@@ -225,4 +226,31 @@ async def update_partner_confirmed(tg_id: int, confirmed: bool):
         await session.execute(
             sa.update(User).where(User.tg_id == tg_id).values(partner_confirmed=confirmed)
         )
-        await session.commit() 
+        await session.commit()
+
+async def add_mood(user_id: int, mood: int, timestamp: str):
+    async with async_session() as session:
+        await session.execute(
+            sa.insert(UserMood).values(user_id=user_id, mood=mood, timestamp=timestamp)
+        )
+        await session.commit()
+
+async def get_mood_summary_last_7_days(user_id: int):
+    from sqlalchemy import text
+    async with async_session() as session:
+        week_ago = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat()
+        sql = text('''
+            SELECT
+                CASE
+                    WHEN mood >= 4 THEN '😊 Хорошее'
+                    WHEN mood = 3 THEN '😐 Нейтральное'
+                    ELSE '😞 Плохое'
+                END AS mood_category,
+                COUNT(*) AS count_days
+            FROM user_mood
+            WHERE user_id = :user_id AND timestamp >= :week_ago
+            GROUP BY mood_category
+            ORDER BY mood_category
+        ''')
+        result = await session.execute(sql, {"user_id": user_id, "week_ago": week_ago})
+        return result.fetchall() 

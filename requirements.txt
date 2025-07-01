@@ -17,3 +17,4 @@ alembic
 # https://download.pytorch.org/whl/torch_stable.html
 pillow
 requests
+httpx>=0.24.0
