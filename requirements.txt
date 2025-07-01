@@ -18,3 +18,4 @@ alembic
 pillow
 requests
 httpx>=0.24.0
+huggingface_hub
